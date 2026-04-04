@@ -2,6 +2,8 @@ import { Race } from '@/lib/types';
 import StatCard from './StatCard';
 import DriverNameWithFlag from './DriverNameWithFlag';
 import ConstructorNameWithLogo from './ConstructorNameWithLogo';
+import PositionBadge from './PositionBadge';
+import LocationWithFlag from './LocationWithFlag';
 
 interface RaceResultsProps {
   race: Race;
@@ -21,7 +23,10 @@ const RaceResults: React.FC<RaceResultsProps> = ({ race }) => {
       <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
         <StatCard title="Circuit" value={race.Circuit.circuitName} />
         <StatCard title="Date" value={race.date} />
-        <StatCard title="Location" value={`${race.Circuit.Location.locality}, ${race.Circuit.Location.country}`} />
+        <StatCard
+          title="Location"
+          value={<LocationWithFlag locality={race.Circuit.Location.locality} country={race.Circuit.Location.country} />}
+        />
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -38,9 +43,7 @@ const RaceResults: React.FC<RaceResultsProps> = ({ race }) => {
             {race.Results.map((result) => (
               <tr key={result.Driver.driverId} className="transition hover:bg-white/[0.03]">
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-white">
-                  <span className="inline-flex min-w-8 justify-center rounded-md bg-white/10 px-2 py-0.5 text-xs font-semibold">
-                    {result.position}
-                  </span>
+                  <PositionBadge position={result.position} />
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">
                   <DriverNameWithFlag

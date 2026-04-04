@@ -123,7 +123,7 @@ async function DriverStandingsData() {
     return <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-200">No driver standings found.</div>;
   }
 
-  return <DriverStandingsTable standings={standings} />;
+  return <DriverStandingsTable standings={standings} compact />;
 }
 
 async function ConstructorStandingsData() {
@@ -150,5 +150,5 @@ async function ConstructorStandingsData() {
     );
   }
 
-  return <ConstructorStandingsTable standings={standings} />;
+  return <ConstructorStandingsTable standings={standings} compact />;
 }
