@@ -1,10 +1,25 @@
 import type { Metadata } from "next";
+import { Bebas_Neue, Manrope } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 
+const displayFont = Bebas_Neue({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-display",
+});
+
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+});
+
 export const metadata: Metadata = {
-  title: "F1 Dashboard",
-  description: "Formula 1 results and statistics",
+  title: {
+    default: "F1 Pulse",
+    template: "%s | F1 Pulse",
+  },
+  description: "Modern Formula 1 hub with race results and championship standings.",
 };
 
 export default function RootLayout({
@@ -14,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`bg-[#15151E] text-white`}>
+      <body className={`${displayFont.variable} ${bodyFont.variable} antialiased`}>
         <Header />
         {children}
       </body>

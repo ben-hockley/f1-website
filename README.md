@@ -38,6 +38,8 @@ This project uses the unofficial F1 API from [f1api.dev](https://f1api.dev/docs)
 
 The following endpoints are used in this project:
 
-- `https://api.f1api.dev/current/drivers-standings`
-- `https://api.f1api.dev/current/constructors-standings`
-- `https://api.f1api.dev/current/last/race`
+- `https://f1api.dev/api/current/drivers-championship`
+- `https://f1api.dev/api/current/constructors-championship`
+- `https://f1api.dev/api/current/last/race`
+
+You can override the API base URL with the `F1_API_BASE_URL` environment variable.

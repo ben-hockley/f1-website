@@ -6,39 +6,45 @@ interface DriverStandingsTableProps {
 
 const DriverStandingsTable: React.FC<DriverStandingsTableProps> = ({ standings }) => {
   if (!standings || standings.length === 0) {
-    return <p>No driver standings available.</p>;
+    return <p className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-200">No driver standings available.</p>;
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow-md p-4">
-      <h2 className="text-xl font-bold text-white mb-4">Driver Standings</h2>
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 shadow-xl">
+      <div className="border-b border-white/10 px-5 py-4">
+        <h2 className="text-2xl font-semibold uppercase tracking-[0.08em] text-white">Driver Standings</h2>
+      </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead className="bg-gray-900">
+        <table className="min-w-full text-sm">
+          <thead className="bg-white/[0.04] text-slate-300">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Pos</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Driver</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Constructor</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Wins</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Points</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Pos</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Driver</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Constructor</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Wins</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Points</th>
             </tr>
           </thead>
-          <tbody className="bg-gray-800 divide-y divide-gray-700">
+          <tbody className="divide-y divide-white/8">
             {standings.map((standing) => (
-              <tr key={standing.Driver.driverId}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{standing.position}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+              <tr key={standing.Driver.driverId} className="transition hover:bg-white/[0.03]">
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-white">
+                  <span className="inline-flex min-w-8 justify-center rounded-md bg-white/10 px-2 py-0.5 text-xs font-semibold">
+                    {standing.position}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">
                   {standing.Driver.givenName} {standing.Driver.familyName}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{standing.Constructor.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{standing.wins}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-500">{standing.points}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{standing.Constructor.name}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{standing.wins}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-bold text-orange-300">{standing.points}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 };
 
