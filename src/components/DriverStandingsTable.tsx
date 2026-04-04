@@ -1,4 +1,6 @@
 import { DriverStanding } from '@/lib/types';
+import DriverNameWithFlag from './DriverNameWithFlag';
+import ConstructorNameWithLogo from './ConstructorNameWithLogo';
 
 interface DriverStandingsTableProps {
   standings: DriverStanding[];
@@ -34,9 +36,18 @@ const DriverStandingsTable: React.FC<DriverStandingsTableProps> = ({ standings }
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">
-                  {standing.Driver.givenName} {standing.Driver.familyName}
+                  <DriverNameWithFlag
+                    givenName={standing.Driver.givenName}
+                    familyName={standing.Driver.familyName}
+                    nationality={standing.Driver.nationality}
+                  />
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{standing.Constructor.name}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">
+                  <ConstructorNameWithLogo
+                    constructorId={standing.Constructor.constructorId}
+                    name={standing.Constructor.name}
+                  />
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{standing.wins}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-bold text-orange-300">{standing.points}</td>
               </tr>

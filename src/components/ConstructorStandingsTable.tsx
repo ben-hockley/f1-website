@@ -1,4 +1,5 @@
 import { ConstructorStanding } from '@/lib/types';
+import ConstructorNameWithLogo from './ConstructorNameWithLogo';
 
 interface ConstructorStandingsTableProps {
   standings: ConstructorStanding[];
@@ -32,7 +33,12 @@ const ConstructorStandingsTable: React.FC<ConstructorStandingsTableProps> = ({ s
                     {standing.position}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">{standing.Constructor.name}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">
+                  <ConstructorNameWithLogo
+                    constructorId={standing.Constructor.constructorId}
+                    name={standing.Constructor.name}
+                  />
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{standing.wins}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-bold text-orange-300">{standing.points}</td>
               </tr>

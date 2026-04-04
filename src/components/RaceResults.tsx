@@ -1,5 +1,7 @@
 import { Race } from '@/lib/types';
 import StatCard from './StatCard';
+import DriverNameWithFlag from './DriverNameWithFlag';
+import ConstructorNameWithLogo from './ConstructorNameWithLogo';
 
 interface RaceResultsProps {
   race: Race;
@@ -41,9 +43,18 @@ const RaceResults: React.FC<RaceResultsProps> = ({ race }) => {
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">
-                  {result.Driver.givenName} {result.Driver.familyName}
+                  <DriverNameWithFlag
+                    givenName={result.Driver.givenName}
+                    familyName={result.Driver.familyName}
+                    nationality={result.Driver.nationality}
+                  />
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{result.Constructor.name}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">
+                  <ConstructorNameWithLogo
+                    constructorId={result.Constructor.constructorId}
+                    name={result.Constructor.name}
+                  />
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{result.Time?.time || 'N/A'}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-bold text-orange-300">{result.points}</td>
               </tr>
