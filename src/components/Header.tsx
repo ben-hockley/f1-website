@@ -44,10 +44,11 @@ const Header = () => {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    aria-current={active ? 'page' : undefined}
                     className={`inline-flex rounded-xl px-3 py-2 text-sm font-semibold uppercase tracking-[0.08em] transition ${
                       active
-                        ? 'bg-white text-slate-900 shadow-lg shadow-white/15'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                        ? 'bg-gradient-to-r from-amber-300 to-orange-400 text-slate-950 shadow-lg shadow-orange-500/30 ring-1 ring-white/35'
+                        : 'text-slate-200/90 hover:bg-white/10 hover:text-white'
                     }`}
                   >
                     {item.label}
