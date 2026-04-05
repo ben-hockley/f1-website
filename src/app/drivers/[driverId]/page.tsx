@@ -2,6 +2,7 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ConstructorCarModelViewerLazy from '@/components/ConstructorCarModelViewerLazy';
 import ConstructorNameWithLogo from '@/components/ConstructorNameWithLogo';
 import DriverHistoricalTable from '@/components/DriverHistoricalTable';
 import DriverNameWithFlag from '@/components/DriverNameWithFlag';
@@ -12,6 +13,7 @@ import {
   getDriverProfile,
   getDriverStandings,
 } from '@/lib/api';
+import { hasConstructorCarModel } from '@/lib/constructorCarModels';
 
 interface DriverDetailPageProps {
   params: Promise<{ driverId: string }>;
@@ -115,13 +117,26 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
     historyMode === 'recent'
       ? `/drivers/${encodeURIComponent(profile.driverId)}?history=full`
       : `/drivers/${encodeURIComponent(profile.driverId)}`;
+  const currentConstructorId = currentSeason?.team.constructorId ?? '';
+  const hasCurrentConstructorModel = hasConstructorCarModel(currentConstructorId);
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
       <section className="relative overflow-hidden rounded-3xl border border-white/15 bg-slate-950/60 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
         <div className="absolute -left-14 top-1/2 h-52 w-52 -translate-y-1/2 rounded-full bg-blue-500/20 blur-3xl" />
         <div className="absolute -right-16 -top-10 h-52 w-52 rounded-full bg-orange-500/25 blur-3xl" />
-        <div className="relative">
+
+        {hasCurrentConstructorModel ? (
+          <div className="relative mt-6 h-[260px] w-full sm:h-[320px] lg:absolute lg:right-0 lg:top-0 lg:mt-0 lg:h-full lg:w-[54%]">
+            <ConstructorCarModelViewerLazy
+              constructorId={currentConstructorId}
+              constructorName={currentSeason?.team.name || currentConstructorId}
+              className="h-full w-full bg-transparent"
+            />
+          </div>
+        ) : null}
+
+        <div className={`relative ${hasCurrentConstructorModel ? 'lg:max-w-[46%]' : ''}`}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">Driver Profile</p>
           <h1 className="mt-3 text-4xl font-semibold uppercase tracking-[0.1em] text-white sm:text-5xl">{displayName}</h1>
 
