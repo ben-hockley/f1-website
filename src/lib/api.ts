@@ -29,6 +29,7 @@ const HISTORICAL_REVALIDATE_SECONDS = 60 * 60 * 12;
 const SEASONS_PAGE_LIMIT = 30;
 const MAX_SEASONS_PAGES = 12;
 const HISTORICAL_FETCH_CONCURRENCY = 6;
+const CONSTRUCTORS_CHAMPIONSHIP_START_YEAR = 1958;
 
 interface ApiDriverItem {
   driverId?: string;
@@ -1021,7 +1022,7 @@ export async function getConstructorHistoricalResults(
 
   const lineageConstructorIds = getConstructorLineageIds(normalizedConstructorId);
   const lineageLookup = new Set(lineageConstructorIds.map(normalizeId));
-  const years = await getAllSeasonYears();
+  const years = (await getAllSeasonYears()).filter((year) => year >= CONSTRUCTORS_CHAMPIONSHIP_START_YEAR);
 
   const rows = await mapWithConcurrency(years, HISTORICAL_FETCH_CONCURRENCY, async (year) => {
     try {
