@@ -5,13 +5,19 @@ export interface ConstructorCarModelConfig {
 
 const DEFAULT_ACCENT_COLOR = '#E2E8F0';
 
-// Credit for all the 3d Models by Abu Saif is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+// Credit for the alpine, mclaren, ferrari, aston martin, red bull 3d Models by Abu Saif is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+//"2025 Williams f1 car" (https://skfb.ly/pAnVQ) by bachlamanh406 is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+//"unpacked-haas_vf24_lod_a" (https://skfb.ly/pGpo9) by MattDoesBlender is licensed under CC Attribution-NonCommercial-ShareAlike (http://creativecommons.org/licenses/by-nc-sa/4.0/).
 const CONSTRUCTOR_MODEL_PATHS: Record<string, string> = {
   alpine: '/constructor-models/f1-2025_alpine_a525.glb',
-  mclaren: '/constructor-models/f1-2025_mclaren_mcl39.glb',
-  ferrari: '/constructor-models/ferrari_sf-25.glb',
   aston_martin: '/constructor-models/Aston Martin Aramco AMR25.glb',
-  red_bull: '/constructor-models/F1-2025 RedBull RB21.glb'
+  ferrari: '/constructor-models/ferrari_sf-25.glb',
+  haas: '/constructor-models/haas.glb',
+  mclaren: '/constructor-models/f1-2025_mclaren_mcl39.glb',
+  mercedes: '/constructor-models/Mercedes AMG F1 W15 2024.glb',
+  rb: '/constructor-models/visa_cash_app_red_bull_racing_vcarb01.glb',
+  red_bull: '/constructor-models/F1-2025 RedBull RB21.glb',
+  williams: '/constructor-models/2025_williams_f1_car.glb'
 };
 
 const CONSTRUCTOR_ACCENT_COLORS: Record<string, string> = {

@@ -96,7 +96,6 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
     historyMode === 'recent'
       ? `/constructors/${encodeURIComponent(profile.constructorId)}?history=full`
       : `/constructors/${encodeURIComponent(profile.constructorId)}`;
-  const isAudiConstructor = profile.constructorId.trim().toLowerCase() === 'audi';
   const hasConstructorModel = hasConstructorCarModel(profile.constructorId);
 
   const constructorProfileOverview = (
@@ -104,7 +103,7 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
       <div className="absolute -left-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-blue-500/20 blur-3xl" />
       <div className="absolute -right-20 -top-16 h-64 w-64 rounded-full bg-orange-500/20 blur-3xl" />
 
-      {!isAudiConstructor && hasConstructorModel ? (
+      {hasConstructorModel ? (
         <div className="relative mt-6 h-[260px] w-full sm:h-[320px] lg:absolute lg:right-0 lg:top-0 lg:mt-0 lg:h-full lg:w-[54%]">
           <ConstructorCarModelViewerLazy
             constructorId={profile.constructorId}
@@ -114,7 +113,7 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
         </div>
       ) : null}
 
-      <div className={`relative ${!isAudiConstructor && hasConstructorModel ? 'lg:max-w-[46%]' : ''}`}>
+      <div className={`relative ${hasConstructorModel ? 'lg:max-w-[46%]' : ''}`}>
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">Constructor Profile</p>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-3">
@@ -149,68 +148,9 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
     </section>
   );
 
-  const constructorMediaPanel = isAudiConstructor ? (
-    <section className="relative overflow-hidden rounded-3xl border border-white/15 bg-slate-950/60 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-6">
-      <div className="absolute -right-16 -bottom-16 h-64 w-64 rounded-full bg-red-500/15 blur-3xl" />
-
-      <div className="relative">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">3D Audi Model</p>
-        <h2 className="mt-3 text-2xl font-semibold uppercase tracking-[0.08em] text-white sm:text-3xl">F1 2026 Audi R26</h2>
-
-        <div className="mt-4 aspect-video overflow-hidden rounded-2xl border border-white/10 bg-transparent">
-          <iframe
-            title="F1 2026 Audi R26 (Launch version)"
-            src="https://sketchfab.com/models/f24a170515b6453a93feecbeec75f27a/embed?autostart=1&preload=1&transparent=1&ui_infos=0&ui_controls=0&ui_hint=0&ui_watermark=0&ui_watermark_link=0"
-            className="h-full w-full"
-            allow="autoplay; fullscreen; xr-spatial-tracking"
-            allowFullScreen
-            loading="lazy"
-          />
-        </div>
-
-        <p className="mt-3 text-xs text-slate-300">
-          <a
-            href="https://sketchfab.com/3d-models/f1-2026-audi-r26-launch-version-f24a170515b6453a93feecbeec75f27a?utm_medium=embed&utm_campaign=share-popup&utm_content=f24a170515b6453a93feecbeec75f27a"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-sky-400 hover:text-sky-300"
-          >
-            F1 2026 Audi R26 (Launch version)
-          </a>{' '}
-          by{' '}
-          <a
-            href="https://sketchfab.com/excalibur?utm_medium=embed&utm_campaign=share-popup&utm_content=f24a170515b6453a93feecbeec75f27a"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-sky-400 hover:text-sky-300"
-          >
-            Excalibur
-          </a>{' '}
-          on{' '}
-          <a
-            href="https://sketchfab.com?utm_medium=embed&utm_campaign=share-popup&utm_content=f24a170515b6453a93feecbeec75f27a"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-sky-400 hover:text-sky-300"
-          >
-            Sketchfab
-          </a>
-          .
-        </p>
-      </div>
-    </section>
-  ) : null;
-
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
-      {isAudiConstructor ? (
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {constructorProfileOverview}
-          {constructorMediaPanel}
-        </section>
-      ) : (
-        constructorProfileOverview
-      )}
+      {constructorProfileOverview}
 
       <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
