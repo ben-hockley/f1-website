@@ -30,26 +30,6 @@ const RECENT_HISTORY_SEASONS = 12;
 
 const getDriverProfileCached = cache(async (driverId: string) => getDriverProfile(driverId));
 
-function formatDate(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return 'N/A';
-  }
-
-  const normalized = trimmed.includes('/') ? trimmed.split('/').reverse().join('-') : trimmed;
-  const date = new Date(normalized);
-
-  if (Number.isNaN(date.getTime())) {
-    return trimmed;
-  }
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
-}
-
 function valueOrFallback(value: string): string {
   const trimmed = value.trim();
   return trimmed || 'N/A';
@@ -109,6 +89,7 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
   );
 
   const displayName = `${profile.givenName} ${profile.familyName}`.replace(/\s+/g, ' ').trim() || profile.driverId;
+  const driverNumber = profile.permanentNumber.trim();
 
   const seasonPosition = currentStanding?.position ?? '';
   const seasonPoints = currentStanding?.points ?? currentSeason?.summary.points ?? '';
@@ -138,7 +119,10 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
 
         <div className={`relative ${hasCurrentConstructorModel ? 'lg:max-w-[46%]' : ''}`}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">Driver Profile</p>
-          <h1 className="mt-3 text-4xl font-semibold uppercase tracking-[0.1em] text-white sm:text-5xl">{displayName}</h1>
+          <h1 className="mt-3 text-4xl font-semibold uppercase tracking-[0.1em] sm:text-5xl">
+            {driverNumber ? <span className="mr-3 text-orange-300">#{driverNumber}</span> : null}
+            <span className="text-white">{displayName}</span>
+          </h1>
 
           <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-200">
             <div className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2">
@@ -155,11 +139,6 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
                 {profile.code}
               </span>
             ) : null}
-            {profile.permanentNumber ? (
-              <span className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]">
-                #{profile.permanentNumber}
-              </span>
-            ) : null}
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -169,36 +148,7 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
             >
               Back To Standings
             </Link>
-            {profile.url ? (
-              <a
-                href={profile.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-200 transition hover:border-orange-300/60 hover:text-white"
-              >
-                Biography Source
-              </a>
-            ) : null}
           </div>
-        </div>
-      </section>
-
-      <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Nationality</p>
-          <p className="mt-2 text-xl font-semibold text-white">{valueOrFallback(profile.nationality)}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Date Of Birth</p>
-          <p className="mt-2 text-xl font-semibold text-white">{formatDate(profile.dateOfBirth)}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Driver Number</p>
-          <p className="mt-2 text-xl font-semibold text-white">{valueOrFallback(profile.permanentNumber)}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Driver Id</p>
-          <p className="mt-2 text-xl font-semibold text-white">{profile.driverId}</p>
         </div>
       </section>
 

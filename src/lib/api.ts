@@ -1100,6 +1100,7 @@ export async function getConstructorCurrentDrivers(constructorId: string): Promi
       .filter((driver): driver is ApiDriverItem => Boolean(driver?.driverId))
       .map<ConstructorLineupDriver>((driver) => ({
         driverId: driver.driverId ?? '',
+        number: toText(driver.number) ?? '',
         givenName: driver.name ?? '',
         familyName: driver.surname ?? '',
         nationality: driver.nationality ?? '',
@@ -1429,13 +1430,23 @@ export async function getRaceWeekendSessionResultsByRound(
   }
 }
 
-export async function getDriverStandings(): Promise<DriverStandingsResponse> {
-  const response = await fetchF1Data<ApiDriverChampionshipResponse>('/current/drivers-championship');
+function getStandingsEndpoint(season: string | undefined, standingsType: 'drivers' | 'constructors'): string {
+  const normalizedSeason = season?.trim();
+
+  if (normalizedSeason) {
+    return `/${encodeURIComponent(normalizedSeason)}/${standingsType}-championship`;
+  }
+
+  return `/current/${standingsType}-championship`;
+}
+
+export async function getDriverStandings(season?: string): Promise<DriverStandingsResponse> {
+  const response = await fetchF1Data<ApiDriverChampionshipResponse>(getStandingsEndpoint(season, 'drivers'));
   return mapDriverStandingsResponse(response);
 }
 
-export async function getConstructorStandings(): Promise<ConstructorStandingsResponse> {
-  const response = await fetchF1Data<ApiConstructorChampionshipResponse>('/current/constructors-championship');
+export async function getConstructorStandings(season?: string): Promise<ConstructorStandingsResponse> {
+  const response = await fetchF1Data<ApiConstructorChampionshipResponse>(getStandingsEndpoint(season, 'constructors'));
   return mapConstructorStandingsResponse(response);
 }
 

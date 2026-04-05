@@ -121,29 +121,6 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
           </div>
           <h1 className="text-4xl font-semibold uppercase tracking-[0.1em] text-white sm:text-5xl">{profile.name}</h1>
         </div>
-
-        <p className="mt-4 text-sm text-slate-300 sm:text-base">
-          Team identity, title pedigree, and live championship context in one overview.
-        </p>
-
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Link
-            href="/constructors"
-            className="inline-flex rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-200 transition hover:border-orange-300/60 hover:text-white"
-          >
-            Back To Standings
-          </Link>
-          {profile.url ? (
-            <a
-              href={profile.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-200 transition hover:border-orange-300/60 hover:text-white"
-            >
-              Team Source
-            </a>
-          ) : null}
-        </div>
       </div>
     </section>
   );
@@ -183,13 +160,11 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
           <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Position</p>
-              <div className="mt-2">
-                {seasonPosition ? <PositionBadge position={seasonPosition} /> : <p className="text-lg font-semibold text-slate-200">N/A</p>}
-              </div>
+              <p className="mt-2 text-2xl font-semibold text-white">{valueOrFallback(seasonPosition)}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Points</p>
-              <p className="mt-2 text-2xl font-semibold text-orange-300">{valueOrFallback(seasonPoints)}</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{valueOrFallback(seasonPoints)}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Wins</p>
@@ -216,8 +191,8 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
             <table className="min-w-full text-sm">
               <thead className="bg-white/[0.04] text-slate-300">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Number</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Driver</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em]">Position</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.12em]">Points</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.12em]">Wins</th>
@@ -226,6 +201,7 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
               <tbody className="divide-y divide-white/8">
                 {currentLineup.drivers.map((driver) => (
                   <tr key={driver.driverId} className="transition hover:bg-white/[0.03]">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-300">{valueOrFallback(driver.permanentNumber)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">
                       <DriverNameWithFlag
                         driverId={driver.driverId}
@@ -234,7 +210,6 @@ export default async function ConstructorDetailPage({ params, searchParams }: Co
                         nationality={driver.nationality}
                       />
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{valueOrFallback(driver.code)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-white">
                       {driver.position ? <PositionBadge position={driver.position} /> : <span className="text-slate-300">N/A</span>}
                     </td>

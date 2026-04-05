@@ -1,5 +1,6 @@
 "use client";
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -119,8 +120,15 @@ const Header: React.FC<HeaderProps> = ({ driverOptions, constructorOptions }) =>
     <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-red-500 text-sm font-bold text-white shadow-lg shadow-orange-500/30">
-            F1
+          <span className="inline-flex h-10 w-16 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-2">
+            <Image
+              src="/constructor-logos/f1.png"
+              alt="F1 logo"
+              width={56}
+              height={22}
+              priority
+              className="h-auto w-full object-contain"
+            />
           </span>
           <div>
             <p className="text-2xl font-semibold uppercase leading-none tracking-[0.16em] text-white">F1 Pulse</p>
