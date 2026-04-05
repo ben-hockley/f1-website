@@ -32,6 +32,22 @@ function normalizeRound(value: string): string {
   return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : '';
 }
 
+function toRaceDateTimestamp(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const candidate = trimmed.includes('T') ? trimmed : `${trimmed}T23:59:59Z`;
+  const timestamp = Date.parse(candidate);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function isFutureRaceDate(value: string): boolean {
+  const timestamp = toRaceDateTimestamp(value);
+  return timestamp !== null && timestamp > Date.now();
+}
+
 export default async function ResultsPage({ searchParams }: ResultsPageProps) {
   const { round } = await searchParams;
   const requestedRound = normalizeRound(getSearchParamValue(round));
@@ -74,14 +90,15 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
       }
     }
 
-    if (season && selectedRound) {
+    const selectedRaceMeta = raceCalendar?.races.find((entry) => entry.round === selectedRound);
+    const isFutureRace = selectedRaceMeta ? isFutureRaceDate(selectedRaceMeta.date) : false;
+
+    if (season && selectedRound && !isFutureRace) {
       const selectedRaceResults = await getRaceResultsByRound(season, selectedRound).catch(() => null);
       race = selectedRaceResults?.Race ?? null;
     }
 
-    const selectedRaceMeta = raceCalendar?.races.find((entry) => entry.round === selectedRound);
-
-    if (!race && (!selectedRaceMeta || selectedRaceMeta.hasResults)) {
+    if (!race && !isFutureRace && (!selectedRaceMeta || selectedRaceMeta.hasResults)) {
       const latestRaceResults = await getLatestRaceResults().catch(() => null);
 
       if (!season) {
