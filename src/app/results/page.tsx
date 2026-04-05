@@ -1,18 +1,34 @@
 import type { Metadata } from 'next';
 import RaceResults from '@/components/RaceResults';
+import WeekendSessionLinks from '@/components/WeekendSessionLinks';
+import WeekendSessionResults from '@/components/WeekendSessionResults';
 import {
   getCurrentSeasonRaceCalendar,
+  getLatestRaceWeekendSessionResults,
   getLatestRaceResults,
   getRaceResultsByRound,
+  getRaceWeekendSessionResultsByRound,
 } from '@/lib/api';
+import { isSprintRaceWeekendSession, normalizeRaceWeekendSession } from '@/lib/raceWeekendSessions';
+import { Race, RaceWeekendSessionAvailability, RaceWeekendSessionKey, RaceWeekendSessionResponse } from '@/lib/types';
 
 export const metadata: Metadata = {
   title: 'Race Results',
 };
 
 interface ResultsPageProps {
-  searchParams: Promise<{ round?: string | string[] }>;
+  searchParams: Promise<{ round?: string | string[]; session?: string | string[] }>;
 }
+
+const DEFAULT_SESSION_AVAILABILITY: RaceWeekendSessionAvailability = {
+  race: true,
+  fp1: false,
+  fp2: false,
+  fp3: false,
+  qualy: false,
+  'sprint-qualy': false,
+  'sprint-race': false,
+};
 
 function getSearchParamValue(value: string | string[] | undefined): string {
   if (Array.isArray(value)) {
@@ -48,18 +64,47 @@ function isFutureRaceDate(value: string): boolean {
   return timestamp !== null && timestamp > Date.now();
 }
 
-export default async function ResultsPage({ searchParams }: ResultsPageProps) {
-  const { round } = await searchParams;
-  const requestedRound = normalizeRound(getSearchParamValue(round));
+function createFallbackWeekendSessionData(
+  session: RaceWeekendSessionKey,
+  season: string,
+  round: string,
+  race: Race | null,
+): RaceWeekendSessionResponse {
+  return {
+    season,
+    round,
+    session,
+    raceName: race?.raceName ?? '',
+    date: race?.date ?? '',
+    Circuit: race?.Circuit ?? {
+      circuitId: '',
+      circuitName: '',
+      Location: {
+        country: '',
+        locality: '',
+      },
+    },
+    Results: [],
+  };
+}
 
-  let race = null;
+export default async function ResultsPage({ searchParams }: ResultsPageProps) {
+  const { round, session } = await searchParams;
+  const requestedRound = normalizeRound(getSearchParamValue(round));
+  const requestedSession = normalizeRaceWeekendSession(getSearchParamValue(session));
+
+  let race: Race | null = null;
   let fetchError = false;
   let season = '';
   let selectedRound = '';
   let totalRounds = 0;
   let previousRound = '';
   let nextRound = '';
+  let selectedSession: RaceWeekendSessionKey = requestedSession;
+  let weekendSessionData: RaceWeekendSessionResponse | null = null;
+  let sessionAvailability: RaceWeekendSessionAvailability = DEFAULT_SESSION_AVAILABILITY;
   let hasPublishedResults = false;
+  let isFutureRace = false;
 
   try {
     const raceCalendar = await getCurrentSeasonRaceCalendar().catch(() => null);
@@ -91,7 +136,17 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
     }
 
     const selectedRaceMeta = raceCalendar?.races.find((entry) => entry.round === selectedRound);
-    const isFutureRace = selectedRaceMeta ? isFutureRaceDate(selectedRaceMeta.date) : false;
+    sessionAvailability = selectedRaceMeta?.sessionAvailability ?? DEFAULT_SESSION_AVAILABILITY;
+    isFutureRace = selectedRaceMeta ? isFutureRaceDate(selectedRaceMeta.date) : false;
+
+    if (selectedSession !== 'race') {
+      const hasRequestedSession = Boolean(sessionAvailability[selectedSession]);
+      const hasRequestedSprintSession = isSprintRaceWeekendSession(selectedSession);
+
+      if (!hasRequestedSession || (hasRequestedSprintSession && !selectedRaceMeta?.hasSprint)) {
+        selectedSession = 'race';
+      }
+    }
 
     if (season && selectedRound && !isFutureRace) {
       const selectedRaceResults = await getRaceResultsByRound(season, selectedRound).catch(() => null);
@@ -135,6 +190,34 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
     }
 
     hasPublishedResults = Boolean(selectedRaceMeta?.hasResults) || Boolean(race?.Results.length);
+
+    if (selectedSession !== 'race' && !hasPublishedResults) {
+      selectedSession = 'race';
+    }
+
+    if (selectedSession !== 'race' && season && selectedRound && !isFutureRace) {
+      weekendSessionData = await getRaceWeekendSessionResultsByRound(season, selectedRound, selectedSession).catch(() => null);
+
+      if (!weekendSessionData && hasPublishedResults) {
+        const latestSessionData = await getLatestRaceWeekendSessionResults(selectedSession).catch(() => null);
+
+        if (!season) {
+          season = latestSessionData?.season || '';
+        }
+
+        if (!selectedRound) {
+          selectedRound = latestSessionData?.round || '';
+        }
+
+        if (latestSessionData?.round === selectedRound) {
+          weekendSessionData = latestSessionData;
+        }
+      }
+
+      if (!weekendSessionData) {
+        weekendSessionData = createFallbackWeekendSessionData(selectedSession, season, selectedRound, race);
+      }
+    }
   } catch {
     fetchError = true;
   }
@@ -152,15 +235,40 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
       {fetchError ? (
         <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">Error loading race results.</div>
       ) : race ? (
-        <RaceResults
-          race={race}
-          season={season}
-          round={selectedRound}
-          totalRounds={totalRounds}
-          previousRound={previousRound}
-          nextRound={nextRound}
-          hasPublishedResults={hasPublishedResults}
-        />
+        <>
+          <WeekendSessionLinks
+            round={selectedRound}
+            activeSession={selectedSession}
+            sessionAvailability={sessionAvailability}
+            hasPublishedResults={hasPublishedResults}
+          />
+
+          {selectedSession === 'race' ? (
+            <RaceResults
+              race={race}
+              season={season}
+              round={selectedRound}
+              totalRounds={totalRounds}
+              previousRound={previousRound}
+              nextRound={nextRound}
+              hasPublishedResults={hasPublishedResults}
+            />
+          ) : weekendSessionData ? (
+            <WeekendSessionResults
+              sessionData={weekendSessionData}
+              season={season}
+              round={selectedRound}
+              totalRounds={totalRounds}
+              previousRound={previousRound}
+              nextRound={nextRound}
+              hasPublishedResults={hasPublishedResults}
+            />
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-200">
+              No session data found for this round.
+            </div>
+          )}
+        </>
       ) : (
         <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-200">No race data found for this round.</div>
       )}

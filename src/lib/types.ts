@@ -233,6 +233,49 @@ export interface ConstructorHistoricalResults {
   previousConstructorNames: string[];
 }
 
+export type RaceWeekendSessionKey =
+  | 'race'
+  | 'fp1'
+  | 'fp2'
+  | 'fp3'
+  | 'qualy'
+  | 'sprint-qualy'
+  | 'sprint-race';
+
+export type RaceWeekendSessionAvailability = Record<RaceWeekendSessionKey, boolean>;
+
+export interface RaceWeekendSessionResult {
+  position: string;
+  points: string;
+  Driver: {
+    driverId: string;
+    code: string;
+    givenName: string;
+    familyName: string;
+    nationality: string;
+  };
+  Constructor: {
+    constructorId: string;
+    name: string;
+    nationality: string;
+  };
+  grid: string;
+  time: string;
+  q1: string;
+  q2: string;
+  q3: string;
+}
+
+export interface RaceWeekendSessionResponse {
+  season: string;
+  round: string;
+  session: RaceWeekendSessionKey;
+  raceName: string;
+  date: string;
+  Circuit: Circuit;
+  Results: RaceWeekendSessionResult[];
+}
+
 export interface RaceCalendarItem {
   round: string;
   raceName: string;
@@ -241,6 +284,8 @@ export interface RaceCalendarItem {
   circuitCountry: string;
   circuitCity: string;
   hasResults: boolean;
+  sessionAvailability: RaceWeekendSessionAvailability;
+  hasSprint: boolean;
 }
 
 export interface RaceCalendarResponse {

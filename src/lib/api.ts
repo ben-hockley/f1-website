@@ -18,6 +18,10 @@ import {
   RaceCalendarItem,
   RaceCalendarResponse,
   RaceResultsResponse,
+  RaceWeekendSessionAvailability,
+  RaceWeekendSessionKey,
+  RaceWeekendSessionResponse,
+  RaceWeekendSessionResult,
 } from './types';
 import { getConstructorLineageIds } from './constructorLineage';
 
@@ -30,6 +34,35 @@ const SEASONS_PAGE_LIMIT = 30;
 const MAX_SEASONS_PAGES = 12;
 const HISTORICAL_FETCH_CONCURRENCY = 6;
 const CONSTRUCTORS_CHAMPIONSHIP_START_YEAR = 1958;
+
+type RaceSessionResultsField =
+  | 'results'
+  | 'qualyResults'
+  | 'fp1Results'
+  | 'fp2Results'
+  | 'fp3Results'
+  | 'sprintQualyResults'
+  | 'sprintRaceResults';
+
+const SESSION_ENDPOINT_BY_KEY: Record<RaceWeekendSessionKey, string> = {
+  race: 'race',
+  fp1: 'fp1',
+  fp2: 'fp2',
+  fp3: 'fp3',
+  qualy: 'qualy',
+  'sprint-qualy': 'sprint/qualy',
+  'sprint-race': 'sprint/race',
+};
+
+const SESSION_RESULTS_FIELD_BY_KEY: Record<RaceWeekendSessionKey, RaceSessionResultsField> = {
+  race: 'results',
+  fp1: 'fp1Results',
+  fp2: 'fp2Results',
+  fp3: 'fp3Results',
+  qualy: 'qualyResults',
+  'sprint-qualy': 'sprintQualyResults',
+  'sprint-race': 'sprintRaceResults',
+};
 
 interface ApiDriverItem {
   driverId?: string;
@@ -116,9 +149,16 @@ interface ApiRaceResultItem {
   position?: string | number;
   points?: string | number;
   grid?: string | number | null;
+  gridPosition?: string | number | null;
   time?: string;
   fastLap?: string;
   retired?: string | null;
+  q1?: string;
+  q2?: string;
+  q3?: string;
+  sq1?: string;
+  sq2?: string;
+  sq3?: string;
   driver?: {
     driverId?: string;
     shortName?: string;
@@ -129,6 +169,7 @@ interface ApiRaceResultItem {
   team?: {
     teamId?: string;
     teamName?: string;
+    teamNationality?: string;
     nationality?: string;
     country?: string;
   };
@@ -139,6 +180,14 @@ interface ApiRaceItem {
   round?: string | number;
   date?: string;
   time?: string;
+  qualyDate?: string;
+  qualyTime?: string;
+  fp1Date?: string;
+  fp1Time?: string;
+  fp2Date?: string;
+  fp2Time?: string;
+  fp3Date?: string;
+  fp3Time?: string;
   url?: string;
   raceName?: string;
   circuit?: ApiRaceCircuit | ApiRaceCircuit[];
@@ -147,10 +196,40 @@ interface ApiRaceItem {
       date?: string;
       time?: string;
     };
+    qualy?: {
+      date?: string | null;
+      time?: string | null;
+    };
+    fp1?: {
+      date?: string | null;
+      time?: string | null;
+    };
+    fp2?: {
+      date?: string | null;
+      time?: string | null;
+    };
+    fp3?: {
+      date?: string | null;
+      time?: string | null;
+    };
+    sprintQualy?: {
+      date?: string | null;
+      time?: string | null;
+    };
+    sprintRace?: {
+      date?: string | null;
+      time?: string | null;
+    };
   };
   winner?: unknown;
   teamWinner?: unknown;
   results?: ApiRaceResultItem | ApiRaceResultItem[];
+  qualyResults?: ApiRaceResultItem | ApiRaceResultItem[];
+  fp1Results?: ApiRaceResultItem | ApiRaceResultItem[];
+  fp2Results?: ApiRaceResultItem | ApiRaceResultItem[];
+  fp3Results?: ApiRaceResultItem | ApiRaceResultItem[];
+  sprintQualyResults?: ApiRaceResultItem | ApiRaceResultItem[];
+  sprintRaceResults?: ApiRaceResultItem | ApiRaceResultItem[];
 }
 
 interface ApiRaceResultsResponse {
@@ -454,6 +533,108 @@ function getRaceDate(race: ApiRaceItem | undefined): string {
   return race?.date ?? race?.schedule?.race?.date ?? '';
 }
 
+function getSessionDate(race: ApiRaceItem | undefined, session: RaceWeekendSessionKey): string {
+  if (!race) {
+    return '';
+  }
+
+  switch (session) {
+    case 'race':
+      return getRaceDate(race);
+    case 'qualy':
+      return race.qualyDate ?? race.schedule?.qualy?.date ?? '';
+    case 'fp1':
+      return race.fp1Date ?? race.schedule?.fp1?.date ?? '';
+    case 'fp2':
+      return race.fp2Date ?? race.schedule?.fp2?.date ?? '';
+    case 'fp3':
+      return race.fp3Date ?? race.schedule?.fp3?.date ?? '';
+    case 'sprint-qualy':
+      return race.date ?? race.schedule?.sprintQualy?.date ?? '';
+    case 'sprint-race':
+      return race.date ?? race.schedule?.sprintRace?.date ?? '';
+    default:
+      return getRaceDate(race);
+  }
+}
+
+function mapRaceWeekendSessionAvailability(race: ApiRaceItem): RaceWeekendSessionAvailability {
+  return {
+    race: Boolean(getRaceDate(race)),
+    fp1: Boolean(race.schedule?.fp1?.date ?? race.fp1Date),
+    fp2: Boolean(race.schedule?.fp2?.date ?? race.fp2Date),
+    fp3: Boolean(race.schedule?.fp3?.date ?? race.fp3Date),
+    qualy: Boolean(race.schedule?.qualy?.date ?? race.qualyDate),
+    'sprint-qualy': Boolean(race.schedule?.sprintQualy?.date),
+    'sprint-race': Boolean(race.schedule?.sprintRace?.date),
+  };
+}
+
+function mapResultDriver(result: ApiRaceResultItem, fallbackDriverId: string): RaceWeekendSessionResult['Driver'] {
+  return {
+    driverId: result.driver?.driverId ?? fallbackDriverId,
+    code: result.driver?.shortName ?? '',
+    givenName: result.driver?.name ?? '',
+    familyName: result.driver?.surname ?? '',
+    nationality: result.driver?.nationality ?? '',
+  };
+}
+
+function mapResultConstructor(result: ApiRaceResultItem): RaceWeekendSessionResult['Constructor'] {
+  return {
+    constructorId: result.team?.teamId ?? '',
+    name: result.team?.teamName ?? result.team?.teamId ?? '',
+    nationality: result.team?.teamNationality ?? result.team?.nationality ?? result.team?.country ?? '',
+  };
+}
+
+function mapWeekendSessionResult(
+  race: ApiRaceItem,
+  session: RaceWeekendSessionKey,
+  result: ApiRaceResultItem,
+  index: number,
+): RaceWeekendSessionResult {
+  const fallbackDriverId = `${race.raceId ?? race.raceName ?? 'race'}-${index + 1}`;
+  const defaultPosition = String(index + 1);
+
+  const position =
+    session === 'race'
+      ? toText(result.position)
+      : session === 'sprint-race'
+        ? toText(result.position) || defaultPosition
+        : session === 'qualy' || session === 'sprint-qualy'
+          ? toText(result.gridPosition ?? result.position) || defaultPosition
+          : defaultPosition;
+
+  const points = session === 'race' || session === 'sprint-race' ? toText(result.points) : '';
+
+  const grid =
+    session === 'race'
+      ? toText(result.grid)
+      : session === 'qualy' || session === 'sprint-qualy' || session === 'sprint-race'
+        ? toText(result.gridPosition ?? result.grid)
+        : '';
+
+  const time =
+    session === 'qualy'
+      ? toText(result.q3) || toText(result.q2) || toText(result.q1)
+      : session === 'sprint-qualy'
+        ? toText(result.sq3) || toText(result.sq2) || toText(result.sq1)
+        : toText(result.time);
+
+  return {
+    position,
+    points,
+    Driver: mapResultDriver(result, fallbackDriverId),
+    Constructor: mapResultConstructor(result),
+    grid,
+    time,
+    q1: session === 'qualy' ? toText(result.q1) : session === 'sprint-qualy' ? toText(result.sq1) : '',
+    q2: session === 'qualy' ? toText(result.q2) : session === 'sprint-qualy' ? toText(result.sq2) : '',
+    q3: session === 'qualy' ? toText(result.q3) : session === 'sprint-qualy' ? toText(result.sq3) : '',
+  };
+}
+
 function mapRaceResultsResponse(data: ApiRaceResultsResponse): RaceResultsResponse {
   const race = getRaceFromResponse(data);
 
@@ -479,27 +660,17 @@ function mapRaceResultsResponse(data: ApiRaceResultsResponse): RaceResultsRespon
         },
       },
       Results: results.map((result, index) => {
-        const fallbackDriverId = `${race.raceId ?? race.raceName ?? 'race'}-${index + 1}`;
+        const mappedResult = mapWeekendSessionResult(race, 'race', result, index);
 
         return {
-          position: toText(result.position),
-          points: toText(result.points),
-          Driver: {
-            driverId: result.driver?.driverId ?? fallbackDriverId,
-            code: result.driver?.shortName ?? '',
-            givenName: result.driver?.name ?? '',
-            familyName: result.driver?.surname ?? '',
-            nationality: result.driver?.nationality ?? '',
-          },
-          Constructor: {
-            constructorId: result.team?.teamId ?? '',
-            name: result.team?.teamName ?? result.team?.teamId ?? '',
-            nationality: result.team?.nationality ?? result.team?.country ?? '',
-          },
-          grid: toText(result.grid),
+          position: mappedResult.position,
+          points: mappedResult.points,
+          Driver: mappedResult.Driver,
+          Constructor: mappedResult.Constructor,
+          grid: mappedResult.grid,
           laps: '',
           status: result.retired ? String(result.retired) : result.position ? 'Finished' : 'Not Started',
-          Time: result.time ? { millis: '', time: result.time } : undefined,
+          Time: mappedResult.time ? { millis: '', time: mappedResult.time } : undefined,
           FastestLap: result.fastLap
             ? {
                 rank: '',
@@ -513,9 +684,42 @@ function mapRaceResultsResponse(data: ApiRaceResultsResponse): RaceResultsRespon
   };
 }
 
+function mapRaceWeekendSessionResultsResponse(
+  data: ApiRaceResultsResponse,
+  session: RaceWeekendSessionKey,
+): RaceWeekendSessionResponse {
+  const race = getRaceFromResponse(data);
+
+  if (!race) {
+    throw new Error('No race session data returned from API.');
+  }
+
+  const circuit = getRaceCircuit(race);
+  const sessionResultsField = SESSION_RESULTS_FIELD_BY_KEY[session];
+  const results = toArray(race[sessionResultsField]);
+
+  return {
+    season: toText(data.season),
+    round: toText(race.round),
+    session,
+    raceName: race.raceName ?? '',
+    date: getSessionDate(race, session),
+    Circuit: {
+      circuitId: circuit?.circuitId ?? '',
+      circuitName: circuit?.circuitName ?? '',
+      Location: {
+        country: circuit?.country ?? '',
+        locality: circuit?.city ?? '',
+      },
+    },
+    Results: results.map((result, index) => mapWeekendSessionResult(race, session, result, index)),
+  };
+}
+
 function mapRaceCalendarItem(race: ApiRaceItem): RaceCalendarItem {
   const circuit = getRaceCircuit(race);
   const resultCount = toArray(race.results).length;
+  const sessionAvailability = mapRaceWeekendSessionAvailability(race);
 
   return {
     round: toText(race.round),
@@ -525,6 +729,8 @@ function mapRaceCalendarItem(race: ApiRaceItem): RaceCalendarItem {
     circuitCountry: circuit?.country ?? '',
     circuitCity: circuit?.city ?? '',
     hasResults: resultCount > 0 || Boolean(race.winner) || Boolean(race.teamWinner),
+    sessionAvailability,
+    hasSprint: sessionAvailability['sprint-qualy'] || sessionAvailability['sprint-race'],
   };
 }
 
@@ -1194,6 +1400,35 @@ export async function getRaceResultsByRound(season: string, round: string): Prom
   }
 }
 
+export async function getRaceWeekendSessionResultsByRound(
+  season: string,
+  round: string,
+  session: RaceWeekendSessionKey,
+): Promise<RaceWeekendSessionResponse | null> {
+  const normalizedSeason = season.trim();
+  const normalizedRound = round.trim();
+
+  if (!normalizedSeason || !normalizedRound) {
+    return null;
+  }
+
+  const endpoint = SESSION_ENDPOINT_BY_KEY[session];
+
+  try {
+    const response = await fetchF1Data<ApiRaceResultsResponse>(
+      `/${encodeURIComponent(normalizedSeason)}/${encodeURIComponent(normalizedRound)}/${endpoint}`,
+    );
+
+    return mapRaceWeekendSessionResultsResponse(response, session);
+  } catch (error) {
+    if (is404Error(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 export async function getDriverStandings(): Promise<DriverStandingsResponse> {
   const response = await fetchF1Data<ApiDriverChampionshipResponse>('/current/drivers-championship');
   return mapDriverStandingsResponse(response);
@@ -1207,4 +1442,10 @@ export async function getConstructorStandings(): Promise<ConstructorStandingsRes
 export async function getLatestRaceResults(): Promise<RaceResultsResponse> {
   const response = await fetchF1Data<ApiRaceResultsResponse>('/current/last/race');
   return mapRaceResultsResponse(response);
+}
+
+export async function getLatestRaceWeekendSessionResults(session: RaceWeekendSessionKey): Promise<RaceWeekendSessionResponse> {
+  const endpoint = SESSION_ENDPOINT_BY_KEY[session];
+  const response = await fetchF1Data<ApiRaceResultsResponse>(`/current/last/${endpoint}`);
+  return mapRaceWeekendSessionResultsResponse(response, session);
 }
