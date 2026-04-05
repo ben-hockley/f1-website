@@ -248,6 +248,10 @@ interface ApiTeamDriversResponse {
       }>;
 }
 
+interface HistoricalResultsOptions {
+  maxSeasons?: number;
+}
+
 function toText(value: string | number | null | undefined): string {
   return value === null || value === undefined ? '' : String(value);
 }
@@ -304,6 +308,44 @@ async function mapWithConcurrency<T, R>(
 
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
+}
+
+async function mapYearsWithEarlyLimit<R>(
+  years: readonly number[],
+  concurrency: number,
+  maxResults: number,
+  mapper: (year: number) => Promise<R | null>,
+): Promise<R[]> {
+  const normalizedConcurrency = Math.max(1, concurrency);
+  const results: R[] = [];
+
+  for (let index = 0; index < years.length; index += normalizedConcurrency) {
+    const batch = years.slice(index, index + normalizedConcurrency);
+    const batchResults = await Promise.all(batch.map((year) => mapper(year)));
+
+    for (const result of batchResults) {
+      if (!result) {
+        continue;
+      }
+
+      results.push(result);
+
+      if (results.length >= maxResults) {
+        return results;
+      }
+    }
+  }
+
+  return results;
+}
+
+function normalizeMaxSeasons(maxSeasons: number | undefined): number | null {
+  if (typeof maxSeasons !== 'number' || !Number.isFinite(maxSeasons)) {
+    return null;
+  }
+
+  const rounded = Math.floor(maxSeasons);
+  return rounded > 0 ? rounded : null;
 }
 
 function is404Error(error: unknown): boolean {
@@ -955,7 +997,10 @@ async function getConstructorDriversBySeason(constructorId: string, year: number
   }
 }
 
-export async function getDriverHistoricalResults(driverId: string): Promise<DriverHistoricalResults> {
+export async function getDriverHistoricalResults(
+  driverId: string,
+  options: HistoricalResultsOptions = {},
+): Promise<DriverHistoricalResults> {
   const normalizedDriverId = driverId.trim();
   if (!normalizedDriverId) {
     return { driverId: '', seasons: [] };
@@ -964,7 +1009,7 @@ export async function getDriverHistoricalResults(driverId: string): Promise<Driv
   const lookupId = normalizeId(normalizedDriverId);
   const years = await getAllSeasonYears();
 
-  const rows = await mapWithConcurrency(years, HISTORICAL_FETCH_CONCURRENCY, async (year) => {
+  const mapYearToHistoricalRow = async (year: number): Promise<DriverHistoricalSeasonRow | null> => {
     try {
       const response = await fetchF1Data<ApiDriverChampionshipResponse>(
         `/${year}/drivers-championship`,
@@ -994,7 +1039,14 @@ export async function getDriverHistoricalResults(driverId: string): Promise<Driv
 
       return null;
     }
-  });
+  };
+
+  const maxSeasons = normalizeMaxSeasons(options.maxSeasons);
+
+  const rows =
+    maxSeasons === null
+      ? await mapWithConcurrency(years, HISTORICAL_FETCH_CONCURRENCY, mapYearToHistoricalRow)
+      : await mapYearsWithEarlyLimit(years, HISTORICAL_FETCH_CONCURRENCY, maxSeasons, mapYearToHistoricalRow);
 
   const seasons = rows
     .filter((row): row is DriverHistoricalSeasonRow => Boolean(row))
@@ -1009,6 +1061,7 @@ export async function getDriverHistoricalResults(driverId: string): Promise<Driv
 export async function getConstructorHistoricalResults(
   constructorId: string,
   currentName = '',
+  options: HistoricalResultsOptions = {},
 ): Promise<ConstructorHistoricalResults> {
   const normalizedConstructorId = constructorId.trim();
   if (!normalizedConstructorId) {
@@ -1024,7 +1077,7 @@ export async function getConstructorHistoricalResults(
   const lineageLookup = new Set(lineageConstructorIds.map(normalizeId));
   const years = (await getAllSeasonYears()).filter((year) => year >= CONSTRUCTORS_CHAMPIONSHIP_START_YEAR);
 
-  const rows = await mapWithConcurrency(years, HISTORICAL_FETCH_CONCURRENCY, async (year) => {
+  const mapYearToHistoricalRow = async (year: number): Promise<ConstructorHistoricalSeasonRow | null> => {
     try {
       const response = await fetchF1Data<ApiConstructorChampionshipResponse>(
         `/${year}/constructors-championship`,
@@ -1058,7 +1111,14 @@ export async function getConstructorHistoricalResults(
 
       return null;
     }
-  });
+  };
+
+  const maxSeasons = normalizeMaxSeasons(options.maxSeasons);
+
+  const rows =
+    maxSeasons === null
+      ? await mapWithConcurrency(years, HISTORICAL_FETCH_CONCURRENCY, mapYearToHistoricalRow)
+      : await mapYearsWithEarlyLimit(years, HISTORICAL_FETCH_CONCURRENCY, maxSeasons, mapYearToHistoricalRow);
 
   const seasons = rows
     .filter((row): row is ConstructorHistoricalSeasonRow => Boolean(row))

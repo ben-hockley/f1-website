@@ -1,9 +1,14 @@
+import Link from 'next/link';
 import { DriverHistoricalSeasonRow } from '@/lib/types';
 import ConstructorNameWithLogo from './ConstructorNameWithLogo';
 import PositionBadge from './PositionBadge';
 
+type HistoryMode = 'recent' | 'full';
+
 interface DriverHistoricalTableProps {
   seasons: DriverHistoricalSeasonRow[];
+  historyMode: HistoryMode;
+  toggleHref: string;
 }
 
 function valueOrFallback(value: string): string {
@@ -11,16 +16,27 @@ function valueOrFallback(value: string): string {
   return trimmed || 'N/A';
 }
 
-const DriverHistoricalTable: React.FC<DriverHistoricalTableProps> = ({ seasons }) => {
+const DriverHistoricalTable: React.FC<DriverHistoricalTableProps> = ({ seasons, historyMode, toggleHref }) => {
   if (!seasons.length) {
     return <p className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-200">No historical season results available.</p>;
   }
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 shadow-xl">
-      <div className="border-b border-white/10 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
         <h2 className="text-2xl font-semibold uppercase tracking-[0.08em] text-white">Historical Season Results</h2>
+        <Link
+          href={toggleHref}
+          className="inline-flex rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200 transition hover:border-orange-300/60 hover:text-white"
+        >
+          {historyMode === 'recent' ? 'Show Full History' : 'Show Recent Seasons'}
+        </Link>
       </div>
+      {historyMode === 'recent' ? (
+        <p className="border-b border-white/10 px-5 py-3 text-xs uppercase tracking-[0.12em] text-slate-400">
+          Showing recent seasons for faster loading.
+        </p>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-white/[0.04] text-slate-300">

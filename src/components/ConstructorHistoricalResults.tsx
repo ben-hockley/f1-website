@@ -1,10 +1,15 @@
+import Link from 'next/link';
 import { ConstructorHistoricalSeasonRow } from '@/lib/types';
 import DriverNameWithFlag from './DriverNameWithFlag';
 import PositionBadge from './PositionBadge';
 
+type HistoryMode = 'recent' | 'full';
+
 interface ConstructorHistoricalResultsProps {
   seasons: ConstructorHistoricalSeasonRow[];
   previousConstructorNames: string[];
+  historyMode: HistoryMode;
+  toggleHref: string;
 }
 
 function valueOrFallback(value: string): string {
@@ -15,6 +20,8 @@ function valueOrFallback(value: string): string {
 const ConstructorHistoricalResults: React.FC<ConstructorHistoricalResultsProps> = ({
   seasons,
   previousConstructorNames,
+  historyMode,
+  toggleHref,
 }) => {
   if (!seasons.length) {
     return <p className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-200">No historical constructor results available.</p>;
@@ -22,11 +29,23 @@ const ConstructorHistoricalResults: React.FC<ConstructorHistoricalResultsProps> 
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 shadow-xl">
-      <div className="border-b border-white/10 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
         <h2 className="text-2xl font-semibold uppercase tracking-[0.08em] text-white">Historical Constructor Results</h2>
+        <Link
+          href={toggleHref}
+          className="inline-flex rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200 transition hover:border-orange-300/60 hover:text-white"
+        >
+          {historyMode === 'recent' ? 'Show Full History' : 'Show Recent Seasons'}
+        </Link>
       </div>
 
-      {previousConstructorNames.length ? (
+      {historyMode === 'recent' ? (
+        <p className="border-b border-white/10 px-5 py-3 text-xs uppercase tracking-[0.12em] text-slate-400">
+          Showing recent seasons for faster loading.
+        </p>
+      ) : null}
+
+      {historyMode === 'full' && previousConstructorNames.length ? (
         <div className="border-b border-white/10 px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Previous Constructor Names</p>
           <div className="mt-3 flex flex-wrap gap-2">

@@ -11,13 +11,21 @@ import {
   getConstructorHistoricalResults,
   getConstructorCurrentSeason,
   getConstructorProfile,
-  getConstructorStandings,
 } from '@/lib/api';
 import { getConstructorLogoPath } from '@/lib/constructorLogos';
 
 interface ConstructorDetailPageProps {
   params: Promise<{ constructorId: string }>;
+  searchParams: Promise<{ history?: string | string[] }>;
 }
+
+interface ConstructorDetailMetadataProps {
+  params: Promise<{ constructorId: string }>;
+}
+
+type HistoryMode = 'recent' | 'full';
+
+const RECENT_HISTORY_SEASONS = 12;
 
 const getConstructorProfileCached = cache(async (constructorId: string) => getConstructorProfile(constructorId));
 
@@ -26,7 +34,19 @@ function valueOrFallback(value: string): string {
   return trimmed || 'N/A';
 }
 
-export async function generateMetadata({ params }: ConstructorDetailPageProps): Promise<Metadata> {
+function getSearchParamValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+
+  return value ?? '';
+}
+
+function getHistoryMode(value: string): HistoryMode {
+  return value.trim().toLowerCase() === 'full' ? 'full' : 'recent';
+}
+
+export async function generateMetadata({ params }: ConstructorDetailMetadataProps): Promise<Metadata> {
   const { constructorId } = await params;
   const profile = await getConstructorProfileCached(constructorId);
 
@@ -43,19 +63,22 @@ export async function generateMetadata({ params }: ConstructorDetailPageProps): 
   };
 }
 
-export default async function ConstructorDetailPage({ params }: ConstructorDetailPageProps) {
+export default async function ConstructorDetailPage({ params, searchParams }: ConstructorDetailPageProps) {
   const { constructorId } = await params;
+  const { history } = await searchParams;
+  const historyMode = getHistoryMode(getSearchParamValue(history));
   const profile = await getConstructorProfileCached(constructorId);
 
   if (!profile) {
     notFound();
   }
 
-  const [currentSeason, currentLineup, standings, historicalResults] = await Promise.all([
+  const historicalOptions = historyMode === 'recent' ? { maxSeasons: RECENT_HISTORY_SEASONS } : undefined;
+
+  const [currentSeason, currentLineup, historicalResults] = await Promise.all([
     getConstructorCurrentSeason(profile.constructorId),
     getConstructorCurrentDrivers(profile.constructorId),
-    getConstructorStandings().catch(() => null),
-    getConstructorHistoricalResults(profile.constructorId, profile.name).catch(() => ({
+    getConstructorHistoricalResults(profile.constructorId, profile.name, historicalOptions).catch(() => ({
       constructorId: profile.constructorId,
       lineageConstructorIds: [],
       seasons: [],
@@ -63,14 +86,14 @@ export default async function ConstructorDetailPage({ params }: ConstructorDetai
     })),
   ]);
 
-  const currentStanding = standings?.ConstructorStandings.find(
-    (entry) => entry.Constructor.constructorId.toLowerCase() === profile.constructorId.toLowerCase(),
-  );
-
-  const seasonPosition = currentStanding?.position ?? currentLineup?.position ?? currentSeason?.position ?? '';
-  const seasonPoints = currentStanding?.points ?? currentLineup?.points ?? currentSeason?.points ?? '';
-  const seasonWins = currentStanding?.wins ?? currentLineup?.wins ?? currentSeason?.wins ?? '';
+  const seasonPosition = currentLineup?.position ?? currentSeason?.position ?? '';
+  const seasonPoints = currentLineup?.points ?? currentSeason?.points ?? '';
+  const seasonWins = currentLineup?.wins || currentSeason?.wins || (seasonPosition || seasonPoints ? '0' : '');
   const logoPath = getConstructorLogoPath(profile.constructorId);
+  const historyToggleHref =
+    historyMode === 'recent'
+      ? `/constructors/${encodeURIComponent(profile.constructorId)}?history=full`
+      : `/constructors/${encodeURIComponent(profile.constructorId)}`;
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
@@ -131,11 +154,11 @@ export default async function ConstructorDetailPage({ params }: ConstructorDetai
         </div>
       </section>
 
-      {currentSeason || currentLineup || currentStanding ? (
+      {currentSeason || currentLineup ? (
         <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 shadow-xl">
           <div className="border-b border-white/10 px-5 py-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-300">
-              {currentSeason?.season || currentLineup?.season || standings?.season || 'Current'} Season
+              {currentSeason?.season || currentLineup?.season || 'Current'} Season
             </p>
             <h2 className="mt-2 text-2xl font-semibold uppercase tracking-[0.08em] text-white">Championship Snapshot</h2>
           </div>
@@ -221,6 +244,8 @@ export default async function ConstructorDetailPage({ params }: ConstructorDetai
         <ConstructorHistoricalResults
           seasons={historicalResults.seasons}
           previousConstructorNames={historicalResults.previousConstructorNames}
+          historyMode={historyMode}
+          toggleHref={historyToggleHref}
         />
       </section>
     </main>

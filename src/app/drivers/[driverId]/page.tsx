@@ -15,7 +15,16 @@ import {
 
 interface DriverDetailPageProps {
   params: Promise<{ driverId: string }>;
+  searchParams: Promise<{ history?: string | string[] }>;
 }
+
+interface DriverDetailMetadataProps {
+  params: Promise<{ driverId: string }>;
+}
+
+type HistoryMode = 'recent' | 'full';
+
+const RECENT_HISTORY_SEASONS = 12;
 
 const getDriverProfileCached = cache(async (driverId: string) => getDriverProfile(driverId));
 
@@ -44,7 +53,19 @@ function valueOrFallback(value: string): string {
   return trimmed || 'N/A';
 }
 
-export async function generateMetadata({ params }: DriverDetailPageProps): Promise<Metadata> {
+function getSearchParamValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+
+  return value ?? '';
+}
+
+function getHistoryMode(value: string): HistoryMode {
+  return value.trim().toLowerCase() === 'full' ? 'full' : 'recent';
+}
+
+export async function generateMetadata({ params }: DriverDetailMetadataProps): Promise<Metadata> {
   const { driverId } = await params;
   const profile = await getDriverProfileCached(driverId);
 
@@ -63,18 +84,22 @@ export async function generateMetadata({ params }: DriverDetailPageProps): Promi
   };
 }
 
-export default async function DriverDetailPage({ params }: DriverDetailPageProps) {
+export default async function DriverDetailPage({ params, searchParams }: DriverDetailPageProps) {
   const { driverId } = await params;
+  const { history } = await searchParams;
+  const historyMode = getHistoryMode(getSearchParamValue(history));
   const profile = await getDriverProfileCached(driverId);
 
   if (!profile) {
     notFound();
   }
 
+  const historicalOptions = historyMode === 'recent' ? { maxSeasons: RECENT_HISTORY_SEASONS } : undefined;
+
   const [currentSeason, standings, historicalResults] = await Promise.all([
     getDriverCurrentSeason(profile.driverId),
     getDriverStandings().catch(() => null),
-    getDriverHistoricalResults(profile.driverId).catch(() => ({ driverId: profile.driverId, seasons: [] })),
+    getDriverHistoricalResults(profile.driverId, historicalOptions).catch(() => ({ driverId: profile.driverId, seasons: [] })),
   ]);
 
   const currentStanding = standings?.DriverStandings.find(
@@ -86,6 +111,10 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
   const seasonPosition = currentStanding?.position ?? '';
   const seasonPoints = currentStanding?.points ?? currentSeason?.summary.points ?? '';
   const seasonWins = currentStanding?.wins ?? currentSeason?.summary.wins ?? '';
+  const historyToggleHref =
+    historyMode === 'recent'
+      ? `/drivers/${encodeURIComponent(profile.driverId)}?history=full`
+      : `/drivers/${encodeURIComponent(profile.driverId)}`;
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
@@ -211,7 +240,11 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       )}
 
       <section className="mt-8">
-        <DriverHistoricalTable seasons={historicalResults.seasons} />
+        <DriverHistoricalTable
+          seasons={historicalResults.seasons}
+          historyMode={historyMode}
+          toggleHref={historyToggleHref}
+        />
       </section>
 
       {currentSeason?.results.length ? (

@@ -46,16 +46,9 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
   let hasPublishedResults = false;
 
   try {
-    const [raceCalendar, latestRaceResults] = await Promise.all([
-      getCurrentSeasonRaceCalendar().catch(() => null),
-      getLatestRaceResults().catch(() => null),
-    ]);
+    const raceCalendar = await getCurrentSeasonRaceCalendar().catch(() => null);
 
-    if (!raceCalendar && !latestRaceResults) {
-      throw new Error('Unable to load race data.');
-    }
-
-    season = raceCalendar?.season || latestRaceResults?.season || '';
+    season = raceCalendar?.season || '';
 
     const availableRounds = raceCalendar?.races.map((entry) => entry.round) ?? [];
     const hasRequestedRound = requestedRound ? availableRounds.includes(requestedRound) : false;
@@ -64,7 +57,6 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
       (hasRequestedRound ? requestedRound : '') ||
       raceCalendar?.currentRound ||
       raceCalendar?.latestCompletedRound ||
-      latestRaceResults?.round ||
       availableRounds[0] ||
       '';
 
@@ -87,11 +79,23 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
       race = selectedRaceResults?.Race ?? null;
     }
 
-    if (!race && latestRaceResults?.Race && latestRaceResults.round === selectedRound) {
-      race = latestRaceResults.Race;
-    }
-
     const selectedRaceMeta = raceCalendar?.races.find((entry) => entry.round === selectedRound);
+
+    if (!race && (!selectedRaceMeta || selectedRaceMeta.hasResults)) {
+      const latestRaceResults = await getLatestRaceResults().catch(() => null);
+
+      if (!season) {
+        season = latestRaceResults?.season || '';
+      }
+
+      if (!selectedRound) {
+        selectedRound = latestRaceResults?.round || '';
+      }
+
+      if (!race && latestRaceResults?.Race && latestRaceResults.round === selectedRound) {
+        race = latestRaceResults.Race;
+      }
+    }
 
     if (!race && selectedRaceMeta) {
       race = {
@@ -107,6 +111,10 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
         },
         Results: [],
       };
+    }
+
+    if (!raceCalendar && !race) {
+      throw new Error('Unable to load race data.');
     }
 
     hasPublishedResults = Boolean(selectedRaceMeta?.hasResults) || Boolean(race?.Results.length);
