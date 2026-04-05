@@ -76,11 +76,17 @@ export default async function Home() {
 
 async function RaceResultsData() {
   let race = null;
+  let season = '';
+  let round = '';
+  let hasPublishedResults = false;
   let fetchError = false;
 
   try {
     const raceResults = await getLatestRaceResults();
     race = raceResults.Race ?? null;
+    season = raceResults.season ?? '';
+    round = raceResults.round ?? '';
+    hasPublishedResults = Boolean(raceResults.Race?.Results?.length);
   } catch {
     fetchError = true;
   }
@@ -98,7 +104,17 @@ async function RaceResultsData() {
     );
   }
 
-  return <RaceResults race={race} />;
+  return (
+    <RaceResults
+      race={race}
+      season={season}
+      round={round}
+      totalRounds={0}
+      previousRound=""
+      nextRound=""
+      hasPublishedResults={hasPublishedResults}
+    />
+  );
 }
 
 async function DriverStandingsData() {

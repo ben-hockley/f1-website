@@ -3,10 +3,12 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ConstructorHistoricalResults from '@/components/ConstructorHistoricalResults';
 import DriverNameWithFlag from '@/components/DriverNameWithFlag';
 import PositionBadge from '@/components/PositionBadge';
 import {
   getConstructorCurrentDrivers,
+  getConstructorHistoricalResults,
   getConstructorCurrentSeason,
   getConstructorProfile,
   getConstructorStandings,
@@ -49,10 +51,16 @@ export default async function ConstructorDetailPage({ params }: ConstructorDetai
     notFound();
   }
 
-  const [currentSeason, currentLineup, standings] = await Promise.all([
+  const [currentSeason, currentLineup, standings, historicalResults] = await Promise.all([
     getConstructorCurrentSeason(profile.constructorId),
     getConstructorCurrentDrivers(profile.constructorId),
     getConstructorStandings().catch(() => null),
+    getConstructorHistoricalResults(profile.constructorId, profile.name).catch(() => ({
+      constructorId: profile.constructorId,
+      lineageConstructorIds: [],
+      seasons: [],
+      previousConstructorNames: [],
+    })),
   ]);
 
   const currentStanding = standings?.ConstructorStandings.find(
@@ -208,6 +216,13 @@ export default async function ConstructorDetailPage({ params }: ConstructorDetai
           </p>
         </section>
       ) : null}
+
+      <section className="mt-8">
+        <ConstructorHistoricalResults
+          seasons={historicalResults.seasons}
+          previousConstructorNames={historicalResults.previousConstructorNames}
+        />
+      </section>
     </main>
   );
 }

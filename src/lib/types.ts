@@ -192,3 +192,60 @@ export interface ConstructorLineupData {
   wins: string;
   drivers: ConstructorLineupDriver[];
 }
+
+export interface DriverHistoricalSeasonRow {
+  season: string;
+  position: string;
+  points: string;
+  wins: string;
+  constructor: Constructor;
+}
+
+export interface DriverHistoricalResults {
+  driverId: string;
+  seasons: DriverHistoricalSeasonRow[];
+}
+
+export interface ConstructorHistoricalDriver {
+  driverId: string;
+  givenName: string;
+  familyName: string;
+  nationality: string;
+  points: string;
+  position: string;
+  wins: string;
+}
+
+export interface ConstructorHistoricalSeasonRow {
+  season: string;
+  constructorId: string;
+  constructorName: string;
+  position: string;
+  points: string;
+  wins: string;
+  drivers: ConstructorHistoricalDriver[];
+}
+
+export interface ConstructorHistoricalResults {
+  constructorId: string;
+  lineageConstructorIds: string[];
+  seasons: ConstructorHistoricalSeasonRow[];
+  previousConstructorNames: string[];
+}
+
+export interface RaceCalendarItem {
+  round: string;
+  raceName: string;
+  date: string;
+  circuitName: string;
+  circuitCountry: string;
+  circuitCity: string;
+  hasResults: boolean;
+}
+
+export interface RaceCalendarResponse {
+  season: string;
+  races: RaceCalendarItem[];
+  currentRound: string;
+  latestCompletedRound: string;
+}

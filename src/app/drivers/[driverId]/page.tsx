@@ -3,10 +3,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ConstructorNameWithLogo from '@/components/ConstructorNameWithLogo';
+import DriverHistoricalTable from '@/components/DriverHistoricalTable';
 import DriverNameWithFlag from '@/components/DriverNameWithFlag';
 import PositionBadge from '@/components/PositionBadge';
 import {
   getDriverCurrentSeason,
+  getDriverHistoricalResults,
   getDriverProfile,
   getDriverStandings,
 } from '@/lib/api';
@@ -69,9 +71,10 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     notFound();
   }
 
-  const [currentSeason, standings] = await Promise.all([
+  const [currentSeason, standings, historicalResults] = await Promise.all([
     getDriverCurrentSeason(profile.driverId),
     getDriverStandings().catch(() => null),
+    getDriverHistoricalResults(profile.driverId).catch(() => ({ driverId: profile.driverId, seasons: [] })),
   ]);
 
   const currentStanding = standings?.DriverStandings.find(
@@ -206,6 +209,10 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
           </p>
         </section>
       )}
+
+      <section className="mt-8">
+        <DriverHistoricalTable seasons={historicalResults.seasons} />
+      </section>
 
       {currentSeason?.results.length ? (
         <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 shadow-xl">

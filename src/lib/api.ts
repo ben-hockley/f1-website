@@ -1,5 +1,8 @@
 import {
   ConstructorDirectoryEntry,
+  ConstructorHistoricalDriver,
+  ConstructorHistoricalResults,
+  ConstructorHistoricalSeasonRow,
   ConstructorLineupData,
   ConstructorLineupDriver,
   ConstructorProfile,
@@ -7,16 +10,25 @@ import {
   ConstructorStandingsResponse,
   DriverCurrentSeasonData,
   DriverDirectoryEntry,
+  DriverHistoricalResults,
+  DriverHistoricalSeasonRow,
   DriverProfile,
   DriverSeasonResultRow,
   DriverStandingsResponse,
+  RaceCalendarItem,
+  RaceCalendarResponse,
   RaceResultsResponse,
 } from './types';
+import { getConstructorLineageIds } from './constructorLineage';
 
 const API_BASE_URL = (process.env.F1_API_BASE_URL ?? 'https://f1api.dev/api').replace(/\/+$/, '');
 const DIRECTORY_PAGE_LIMIT = 100;
 const MAX_DIRECTORY_PAGES = 40;
 const DIRECTORY_REVALIDATE_SECONDS = 60 * 60 * 6;
+const HISTORICAL_REVALIDATE_SECONDS = 60 * 60 * 12;
+const SEASONS_PAGE_LIMIT = 30;
+const MAX_SEASONS_PAGES = 12;
+const HISTORICAL_FETCH_CONCURRENCY = 6;
 
 interface ApiDriverItem {
   driverId?: string;
@@ -92,10 +104,17 @@ interface ApiConstructorChampionshipResponse {
   constructors_championship?: ApiConstructorChampionshipItem | ApiConstructorChampionshipItem[];
 }
 
+interface ApiRaceCircuit {
+  circuitId?: string;
+  circuitName?: string;
+  country?: string;
+  city?: string;
+}
+
 interface ApiRaceResultItem {
-  position: string | number;
-  points: string | number;
-  grid?: string | number;
+  position?: string | number;
+  points?: string | number;
+  grid?: string | number | null;
   time?: string;
   fastLap?: string;
   retired?: string | null;
@@ -115,21 +134,45 @@ interface ApiRaceResultItem {
 }
 
 interface ApiRaceItem {
+  raceId?: string;
   round?: string | number;
   date?: string;
+  time?: string;
+  url?: string;
   raceName?: string;
-  circuit?: {
-    circuitId?: string;
-    circuitName?: string;
-    country?: string;
-    city?: string;
+  circuit?: ApiRaceCircuit | ApiRaceCircuit[];
+  schedule?: {
+    race?: {
+      date?: string;
+      time?: string;
+    };
   };
+  winner?: unknown;
+  teamWinner?: unknown;
   results?: ApiRaceResultItem | ApiRaceResultItem[];
 }
 
 interface ApiRaceResultsResponse {
   season?: string | number;
+  race?: ApiRaceItem | ApiRaceItem[];
   races?: ApiRaceItem | ApiRaceItem[];
+}
+
+interface ApiCurrentRacesResponse {
+  season?: string | number;
+  races?: ApiRaceItem | ApiRaceItem[];
+}
+
+interface ApiSeasonChampionship {
+  championshipId?: string;
+  year?: string | number;
+}
+
+interface ApiSeasonsResponse {
+  limit?: string | number;
+  offset?: string | number;
+  total?: string | number;
+  championships?: ApiSeasonChampionship | ApiSeasonChampionship[];
 }
 
 interface ApiDriversDirectoryResponse {
@@ -219,6 +262,47 @@ function toArray<T>(value: T | T[] | null | undefined): T[] {
   }
 
   return value ? [value] : [];
+}
+
+function normalizeId(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function toRaceDateTimestamp(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const candidate = trimmed.includes('T') ? trimmed : `${trimmed}T23:59:59Z`;
+  const timestamp = Date.parse(candidate);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  let cursor = 0;
+
+  async function worker() {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+
+      if (index >= items.length) {
+        return;
+      }
+
+      results[index] = await mapper(items[index]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 }
 
 function is404Error(error: unknown): boolean {
@@ -315,58 +399,132 @@ function mapConstructorStandingsResponse(data: ApiConstructorChampionshipRespons
   };
 }
 
+function getRaceFromResponse(data: ApiRaceResultsResponse): ApiRaceItem | undefined {
+  return toArray(data.races ?? data.race)[0];
+}
+
+function getRaceCircuit(race: ApiRaceItem | undefined): ApiRaceCircuit | undefined {
+  return toArray(race?.circuit)[0];
+}
+
+function getRaceDate(race: ApiRaceItem | undefined): string {
+  return race?.date ?? race?.schedule?.race?.date ?? '';
+}
+
 function mapRaceResultsResponse(data: ApiRaceResultsResponse): RaceResultsResponse {
-  const race = toArray(data.races)[0];
+  const race = getRaceFromResponse(data);
 
   if (!race) {
     throw new Error('No race data returned from API.');
   }
 
+  const circuit = getRaceCircuit(race);
   const results = toArray(race.results);
 
   return {
     season: toText(data.season),
-    round: toText(race?.round),
+    round: toText(race.round),
     Race: {
-      raceName: race?.raceName ?? '',
-      date: race?.date ?? '',
+      raceName: race.raceName ?? '',
+      date: getRaceDate(race),
       Circuit: {
-        circuitId: race?.circuit?.circuitId ?? '',
-        circuitName: race?.circuit?.circuitName ?? '',
+        circuitId: circuit?.circuitId ?? '',
+        circuitName: circuit?.circuitName ?? '',
         Location: {
-          country: race?.circuit?.country ?? '',
-          locality: race?.circuit?.city ?? '',
+          country: circuit?.country ?? '',
+          locality: circuit?.city ?? '',
         },
       },
-      Results: results.map((result) => ({
-        position: toText(result.position),
-        points: toText(result.points),
-        Driver: {
-          driverId: result.driver?.driverId ?? '',
-          code: result.driver?.shortName ?? '',
-          givenName: result.driver?.name ?? '',
-          familyName: result.driver?.surname ?? '',
-          nationality: result.driver?.nationality ?? '',
-        },
-        Constructor: {
-          constructorId: result.team?.teamId ?? '',
-          name: result.team?.teamName ?? '',
-          nationality: result.team?.nationality ?? result.team?.country ?? '',
-        },
-        grid: toText(result.grid),
-        laps: '',
-        status: result.retired ? String(result.retired) : 'Finished',
-        Time: result.time ? { millis: '', time: result.time } : undefined,
-        FastestLap: result.fastLap
-          ? {
-              rank: '',
-              lap: '',
-              Time: { time: result.fastLap },
-            }
-          : undefined,
-      })),
+      Results: results.map((result, index) => {
+        const fallbackDriverId = `${race.raceId ?? race.raceName ?? 'race'}-${index + 1}`;
+
+        return {
+          position: toText(result.position),
+          points: toText(result.points),
+          Driver: {
+            driverId: result.driver?.driverId ?? fallbackDriverId,
+            code: result.driver?.shortName ?? '',
+            givenName: result.driver?.name ?? '',
+            familyName: result.driver?.surname ?? '',
+            nationality: result.driver?.nationality ?? '',
+          },
+          Constructor: {
+            constructorId: result.team?.teamId ?? '',
+            name: result.team?.teamName ?? result.team?.teamId ?? '',
+            nationality: result.team?.nationality ?? result.team?.country ?? '',
+          },
+          grid: toText(result.grid),
+          laps: '',
+          status: result.retired ? String(result.retired) : result.position ? 'Finished' : 'Not Started',
+          Time: result.time ? { millis: '', time: result.time } : undefined,
+          FastestLap: result.fastLap
+            ? {
+                rank: '',
+                lap: '',
+                Time: { time: result.fastLap },
+              }
+            : undefined,
+        };
+      }),
     },
   };
+}
+
+function mapRaceCalendarItem(race: ApiRaceItem): RaceCalendarItem {
+  const circuit = getRaceCircuit(race);
+  const resultCount = toArray(race.results).length;
+
+  return {
+    round: toText(race.round),
+    raceName: race.raceName ?? '',
+    date: getRaceDate(race),
+    circuitName: circuit?.circuitName ?? '',
+    circuitCountry: circuit?.country ?? '',
+    circuitCity: circuit?.city ?? '',
+    hasResults: resultCount > 0 || Boolean(race.winner) || Boolean(race.teamWinner),
+  };
+}
+
+function getCurrentRoundFromCalendar(races: RaceCalendarItem[]): string {
+  if (races.length === 0) {
+    return '';
+  }
+
+  const now = Date.now();
+
+  for (const race of races) {
+    const timestamp = toRaceDateTimestamp(race.date);
+    if (timestamp !== null && timestamp >= now) {
+      return race.round;
+    }
+  }
+
+  const scheduledRace = races.find((race) => !race.hasResults && toRaceDateTimestamp(race.date) === null);
+  if (scheduledRace?.round) {
+    return scheduledRace.round;
+  }
+
+  return races[races.length - 1]?.round ?? '';
+}
+
+function getLatestCompletedRoundFromCalendar(races: RaceCalendarItem[]): string {
+  for (let index = races.length - 1; index >= 0; index -= 1) {
+    if (races[index]?.hasResults) {
+      return races[index].round;
+    }
+  }
+
+  const now = Date.now();
+  let latestPastRound = '';
+
+  for (const race of races) {
+    const timestamp = toRaceDateTimestamp(race.date);
+    if (timestamp !== null && timestamp < now) {
+      latestPastRound = race.round;
+    }
+  }
+
+  return latestPastRound;
 }
 
 async function fetchF1Data<T>(endpoint: string, revalidateSeconds = 300): Promise<T> {
@@ -453,6 +611,48 @@ async function getAllConstructorDirectoryItems(): Promise<ApiTeamItem[]> {
   }
 
   return items;
+}
+
+async function getAllSeasonYears(): Promise<number[]> {
+  const years: number[] = [];
+  let offset = 0;
+  let previousFirstYear = 0;
+
+  for (let page = 0; page < MAX_SEASONS_PAGES; page += 1) {
+    const response = await fetchF1Data<ApiSeasonsResponse>(
+      `/seasons?limit=${SEASONS_PAGE_LIMIT}&offset=${offset}`,
+      HISTORICAL_REVALIDATE_SECONDS,
+    );
+    const chunk = toArray(response.championships);
+
+    if (chunk.length === 0) {
+      break;
+    }
+
+    const firstYear = Number.parseInt(toText(chunk[0]?.year), 10);
+    if (page > 0 && Number.isFinite(firstYear) && firstYear === previousFirstYear) {
+      break;
+    }
+
+    if (Number.isFinite(firstYear)) {
+      previousFirstYear = firstYear;
+    }
+
+    for (const item of chunk) {
+      const year = Number.parseInt(toText(item.year), 10);
+      if (Number.isFinite(year)) {
+        years.push(year);
+      }
+    }
+
+    if (chunk.length < SEASONS_PAGE_LIMIT) {
+      break;
+    }
+
+    offset += SEASONS_PAGE_LIMIT;
+  }
+
+  return Array.from(new Set(years)).sort((left, right) => right - left);
 }
 
 export async function getAllDriversDirectory(): Promise<DriverDirectoryEntry[]> {
@@ -696,6 +896,234 @@ export async function getConstructorCurrentDrivers(constructorId: string): Promi
       wins: toText(response.team?.wins),
       drivers: lineup,
     };
+  } catch (error) {
+    if (is404Error(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function getConstructorDriversBySeason(constructorId: string, year: number): Promise<ConstructorHistoricalDriver[]> {
+  try {
+    const response = await fetchF1Data<ApiTeamDriversResponse>(
+      `/${year}/teams/${encodeURIComponent(constructorId)}/drivers`,
+      HISTORICAL_REVALIDATE_SECONDS,
+    );
+
+    return toArray(response.drivers)
+      .map((item) => item.driver)
+      .filter((driver): driver is ApiDriverItem => Boolean(driver?.driverId))
+      .map<ConstructorHistoricalDriver>((driver) => ({
+        driverId: driver.driverId ?? '',
+        givenName: driver.name ?? '',
+        familyName: driver.surname ?? '',
+        nationality: driver.nationality ?? '',
+        points: toText(driver.points),
+        position: toText(driver.position),
+        wins: toText(driver.wins),
+      }))
+      .sort((left, right) => {
+        const leftPos = Number.parseInt(left.position, 10);
+        const rightPos = Number.parseInt(right.position, 10);
+
+        if (Number.isFinite(leftPos) && Number.isFinite(rightPos)) {
+          return leftPos - rightPos;
+        }
+
+        if (Number.isFinite(leftPos)) {
+          return -1;
+        }
+
+        if (Number.isFinite(rightPos)) {
+          return 1;
+        }
+
+        const leftName = `${left.familyName} ${left.givenName}`.trim();
+        const rightName = `${right.familyName} ${right.givenName}`.trim();
+        return leftName.localeCompare(rightName);
+      });
+  } catch (error) {
+    if (is404Error(error)) {
+      return [];
+    }
+
+    console.error(`Unable to fetch constructor lineup for ${constructorId} in ${year}:`, error);
+    return [];
+  }
+}
+
+export async function getDriverHistoricalResults(driverId: string): Promise<DriverHistoricalResults> {
+  const normalizedDriverId = driverId.trim();
+  if (!normalizedDriverId) {
+    return { driverId: '', seasons: [] };
+  }
+
+  const lookupId = normalizeId(normalizedDriverId);
+  const years = await getAllSeasonYears();
+
+  const rows = await mapWithConcurrency(years, HISTORICAL_FETCH_CONCURRENCY, async (year) => {
+    try {
+      const response = await fetchF1Data<ApiDriverChampionshipResponse>(
+        `/${year}/drivers-championship`,
+        HISTORICAL_REVALIDATE_SECONDS,
+      );
+      const standing = toArray(response.drivers_championship).find((entry) => normalizeId(entry.driverId) === lookupId);
+
+      if (!standing) {
+        return null;
+      }
+
+      return {
+        season: toText(response.season) || toText(year),
+        position: toText(standing.position),
+        points: toText(standing.points),
+        wins: toText(standing.wins),
+        constructor: {
+          constructorId: standing.team?.teamId ?? standing.teamId ?? '',
+          name: standing.team?.teamName ?? standing.team?.teamId ?? standing.teamId ?? '',
+          nationality: standing.team?.nationality ?? standing.team?.country ?? '',
+        },
+      } satisfies DriverHistoricalSeasonRow;
+    } catch (error) {
+      if (!is404Error(error)) {
+        console.error(`Unable to fetch driver standings for ${year}:`, error);
+      }
+
+      return null;
+    }
+  });
+
+  const seasons = rows
+    .filter((row): row is DriverHistoricalSeasonRow => Boolean(row))
+    .sort((left, right) => toNumber(right.season) - toNumber(left.season));
+
+  return {
+    driverId: normalizedDriverId,
+    seasons,
+  };
+}
+
+export async function getConstructorHistoricalResults(
+  constructorId: string,
+  currentName = '',
+): Promise<ConstructorHistoricalResults> {
+  const normalizedConstructorId = constructorId.trim();
+  if (!normalizedConstructorId) {
+    return {
+      constructorId: '',
+      lineageConstructorIds: [],
+      seasons: [],
+      previousConstructorNames: [],
+    };
+  }
+
+  const lineageConstructorIds = getConstructorLineageIds(normalizedConstructorId);
+  const lineageLookup = new Set(lineageConstructorIds.map(normalizeId));
+  const years = await getAllSeasonYears();
+
+  const rows = await mapWithConcurrency(years, HISTORICAL_FETCH_CONCURRENCY, async (year) => {
+    try {
+      const response = await fetchF1Data<ApiConstructorChampionshipResponse>(
+        `/${year}/constructors-championship`,
+        HISTORICAL_REVALIDATE_SECONDS,
+      );
+      const standing = toArray(response.constructors_championship).find((entry) => {
+        const candidateId = normalizeId(entry.team?.teamId ?? entry.teamId ?? '');
+        return candidateId ? lineageLookup.has(candidateId) : false;
+      });
+
+      if (!standing) {
+        return null;
+      }
+
+      const matchedConstructorId = (standing.team?.teamId ?? standing.teamId ?? '').trim() || normalizedConstructorId;
+      const drivers = await getConstructorDriversBySeason(matchedConstructorId, year);
+
+      return {
+        season: toText(response.season) || toText(year),
+        constructorId: matchedConstructorId,
+        constructorName: standing.team?.teamName ?? matchedConstructorId,
+        position: toText(standing.position),
+        points: toText(standing.points),
+        wins: toText(standing.wins),
+        drivers,
+      } satisfies ConstructorHistoricalSeasonRow;
+    } catch (error) {
+      if (!is404Error(error)) {
+        console.error(`Unable to fetch constructor standings for ${year}:`, error);
+      }
+
+      return null;
+    }
+  });
+
+  const seasons = rows
+    .filter((row): row is ConstructorHistoricalSeasonRow => Boolean(row))
+    .sort((left, right) => toNumber(right.season) - toNumber(left.season));
+
+  const normalizedCurrentName = currentName.trim().toLowerCase();
+  const previousConstructorNames: string[] = [];
+  const nameLookup = new Set<string>();
+
+  for (const row of seasons) {
+    const name = row.constructorName.trim();
+    if (!name) {
+      continue;
+    }
+
+    const lookup = name.toLowerCase();
+    if (normalizedCurrentName && lookup === normalizedCurrentName) {
+      continue;
+    }
+
+    if (nameLookup.has(lookup)) {
+      continue;
+    }
+
+    nameLookup.add(lookup);
+    previousConstructorNames.push(name);
+  }
+
+  return {
+    constructorId: normalizedConstructorId,
+    lineageConstructorIds,
+    seasons,
+    previousConstructorNames,
+  };
+}
+
+export async function getCurrentSeasonRaceCalendar(): Promise<RaceCalendarResponse> {
+  const response = await fetchF1Data<ApiCurrentRacesResponse>('/current', 60 * 30);
+
+  const races = toArray(response.races)
+    .map(mapRaceCalendarItem)
+    .filter((race) => Boolean(race.round))
+    .sort((left, right) => toNumber(left.round) - toNumber(right.round));
+
+  return {
+    season: toText(response.season),
+    races,
+    currentRound: getCurrentRoundFromCalendar(races),
+    latestCompletedRound: getLatestCompletedRoundFromCalendar(races),
+  };
+}
+
+export async function getRaceResultsByRound(season: string, round: string): Promise<RaceResultsResponse | null> {
+  const normalizedSeason = season.trim();
+  const normalizedRound = round.trim();
+
+  if (!normalizedSeason || !normalizedRound) {
+    return null;
+  }
+
+  try {
+    const response = await fetchF1Data<ApiRaceResultsResponse>(
+      `/${encodeURIComponent(normalizedSeason)}/${encodeURIComponent(normalizedRound)}/race`,
+    );
+
+    return mapRaceResultsResponse(response);
   } catch (error) {
     if (is404Error(error)) {
       return null;
