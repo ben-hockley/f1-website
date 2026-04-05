@@ -12,7 +12,7 @@ const CONSTRUCTOR_LOGOS: Record<string, string> = {
   williams: '/constructor-logos/williams.avif',
 };
 
-const DEFAULT_LOGO = '/constructor-logos/default.avif';
+const DEFAULT_LOGO = '/constructor-logos/default.svg';
 
 export function getConstructorLogoPath(constructorId: string): string {
   const normalizedId = constructorId.trim().toLowerCase();

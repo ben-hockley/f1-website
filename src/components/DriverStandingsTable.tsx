@@ -37,6 +37,7 @@ const DriverStandingsTable: React.FC<DriverStandingsTableProps> = ({ standings, 
                 </td>
                 <td className={`px-3 py-3 text-sm font-semibold text-white ${compact ? 'min-w-0' : 'whitespace-nowrap'}`}>
                   <DriverNameWithFlag
+                    driverId={standing.Driver.driverId}
                     givenName={standing.Driver.givenName}
                     familyName={standing.Driver.familyName}
                     nationality={standing.Driver.nationality}

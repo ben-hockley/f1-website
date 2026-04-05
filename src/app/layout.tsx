@@ -3,6 +3,8 @@ import { Bebas_Neue, Manrope } from "next/font/google";
 import "flag-icons/css/flag-icons.min.css";
 import "./globals.css";
 import Header from "@/components/Header";
+import { getAllConstructorsDirectory, getAllDriversDirectory } from "@/lib/api";
+import type { ConstructorDirectoryEntry, DriverDirectoryEntry } from "@/lib/types";
 
 const displayFont = Bebas_Neue({
   subsets: ["latin"],
@@ -23,15 +25,27 @@ export const metadata: Metadata = {
   description: "Modern Formula 1 hub with race results and championship standings.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let driverOptions: DriverDirectoryEntry[] = [];
+  let constructorOptions: ConstructorDirectoryEntry[] = [];
+
+  try {
+    [driverOptions, constructorOptions] = await Promise.all([
+      getAllDriversDirectory(),
+      getAllConstructorsDirectory(),
+    ]);
+  } catch (error) {
+    console.error("Header directory fetch failed:", error);
+  }
+
   return (
     <html lang="en">
       <body className={`${displayFont.variable} ${bodyFont.variable} antialiased`}>
-        <Header />
+        <Header driverOptions={driverOptions} constructorOptions={constructorOptions} />
         {children}
       </body>
     </html>

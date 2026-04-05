@@ -47,6 +47,7 @@ const RaceResults: React.FC<RaceResultsProps> = ({ race }) => {
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">
                   <DriverNameWithFlag
+                    driverId={result.Driver.driverId}
                     givenName={result.Driver.givenName}
                     familyName={result.Driver.familyName}
                     nationality={result.Driver.nationality}
