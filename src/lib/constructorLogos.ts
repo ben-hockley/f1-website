@@ -10,9 +10,11 @@ const CONSTRUCTOR_LOGOS: Record<string, string> = {
   rb: '/constructor-logos/rb.avif',
   red_bull: '/constructor-logos/red_bull.avif',
   williams: '/constructor-logos/williams.avif',
+
+  sauber: '/constructor-logos/sauber.avif',
 };
 
-const DEFAULT_LOGO = '/constructor-logos/default.svg';
+const DEFAULT_LOGO = '/constructor-logos/f1.png';
 
 export function getConstructorLogoPath(constructorId: string): string {
   const normalizedId = constructorId.trim().toLowerCase();

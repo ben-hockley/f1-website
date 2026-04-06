@@ -11,6 +11,7 @@ const DEFAULT_ACCENT_COLOR = '#E2E8F0';
 const CONSTRUCTOR_MODEL_PATHS: Record<string, string> = {
   alpine: '/constructor-models/f1-2025_alpine_a525.glb',
   aston_martin: '/constructor-models/Aston Martin Aramco AMR25.glb',
+  audi: '/constructor-models/audi.glb',
   ferrari: '/constructor-models/ferrari_sf-25.glb',
   haas: '/constructor-models/haas.glb',
   mclaren: '/constructor-models/f1-2025_mclaren_mcl39.glb',
